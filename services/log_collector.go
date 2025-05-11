@@ -9,13 +9,13 @@ import (
 )
 
 type Logs struct {
+	TimeCreated      time.Time `json:"timeCreated"` //Time at which the log was generated
 	ID               int       `json:"id"`
-	TimeCreated      time.Time `json:"timeCreated"`      //Time at which the log was generated
 	LevelDisplayName string    `json:"levelDisplayName"` //Type of log (INFO, WARN, ERROR, FATAL)
 	Message          string    `json:"message"`          //Message of the log
 }
 
-func logsEvents() []Logs {
+func LogsEvents() []Logs {
 	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -LogName System -MaxEvents 10 | ConvertTo-Json`)
 
 	var out bytes.Buffer
@@ -29,6 +29,13 @@ func logsEvents() []Logs {
 
 	var events []Logs
 	if err := json.Unmarshal(out.Bytes(), &events); err != nil {
-
+		var event Logs
+		if err := json.Unmarshal(out.Bytes(), &event); err == nil {
+			events = append(events, event)
+		} else {
+			fmt.Printf("Error parse JSON: %v", err)
+		}
 	}
+
+	return events
 }
