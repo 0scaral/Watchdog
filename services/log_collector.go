@@ -15,7 +15,7 @@ type Logs struct {
 	Message          string    `json:"message"`          //Message of the log
 }
 
-func LogsEvents() []Logs {
+func LogsEvents() ([]Logs, map[int]Logs) {
 	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -LogName System -MaxEvents 10 | ConvertTo-Json`)
 
 	var out bytes.Buffer
@@ -24,7 +24,7 @@ func LogsEvents() []Logs {
 
 	if err != nil {
 		fmt.Printf("Error in powershell execution: %v\n", err)
-		return nil
+		return nil, nil
 	}
 
 	var events []Logs
@@ -37,5 +37,25 @@ func LogsEvents() []Logs {
 		}
 	}
 
-	return events
+	logMap := make(map[int]Logs)
+	for _, log := range events {
+		logMap[log.ID] = log
+	}
+
+	return events, logMap
+}
+
+func GetLogByID(logMap map[int]Logs, id int) (Logs, bool) {
+	log, found := logMap[id]
+	return log, found
+}
+
+func GetLogsByType(logMap map[int]Logs, logType string) []Logs {
+	var result []Logs
+	for _, log := range logMap {
+		if log.LevelDisplayName == logType {
+			result = append(result, log)
+		}
+	}
+	return result
 }
