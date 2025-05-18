@@ -1,11 +1,10 @@
 package services
 
 import (
-	//"fmt"
+	"sync"
 	"time"
 
 	"github.com/StackExchange/wmi"
-	//"github.com/mindprince/gonvml"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/mem"
 )
@@ -29,12 +28,94 @@ type Temperature struct {
 	Temperature uint32
 }
 
-/* GPUStats holds GPU usage and temperature
-type GPUStats struct {
-	Name        string
-	Utilization uint
-	Temperature uint
-}*/
+type MetricsSnapshot struct {
+	Timestamp    time.Time
+	CPU          CPUStats
+	Memory       MemoryStats
+	Temperatures []Temperature
+}
+
+// Almacenamiento en memoria de snapshots
+var (
+	metricsHistory []MetricsSnapshot
+	historyMutex   sync.Mutex
+	maxHistory     = 1000 // puedes ajustar este valor según tus necesidades
+)
+
+// Guarda un snapshot actual en el historial
+func StoreCurrentMetricsSnapshot() error {
+	cpuStats, err := GetCPUUsage()
+	if err != nil {
+		return err
+	}
+	memStats, err := GetMemoryUsage()
+	if err != nil {
+		return err
+	}
+	temps, _ := GetTemperatures()
+
+	snapshot := MetricsSnapshot{
+		Timestamp:    time.Now(),
+		CPU:          cpuStats,
+		Memory:       memStats,
+		Temperatures: temps,
+	}
+
+	historyMutex.Lock()
+	defer historyMutex.Unlock()
+	metricsHistory = append(metricsHistory, snapshot)
+	if len(metricsHistory) > maxHistory {
+		metricsHistory = metricsHistory[1:]
+	}
+	return nil
+}
+
+// Llama a esta función periódicamente (por ejemplo, cada minuto) desde un goroutine en main.go
+func StartMetricsCollector(interval time.Duration, stopCh <-chan struct{}) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			StoreCurrentMetricsSnapshot()
+		case <-stopCh:
+			return
+		}
+	}
+}
+
+// Devuelve los snapshots más cercanos a hace 10, 5 minutos y el actual
+func GetHistoricalMetrics() ([]MetricsSnapshot, error) {
+	historyMutex.Lock()
+	defer historyMutex.Unlock()
+
+	now := time.Now()
+	targets := []time.Duration{10 * time.Minute, 5 * time.Minute, 0}
+	result := make([]MetricsSnapshot, 0, 3)
+
+	for _, target := range targets {
+		var closest *MetricsSnapshot
+		minDiff := time.Duration(1<<63 - 1)
+		for i := range metricsHistory {
+			diff := absDuration(metricsHistory[i].Timestamp.Sub(now.Add(-target)))
+			if diff < minDiff {
+				minDiff = diff
+				closest = &metricsHistory[i]
+			}
+		}
+		if closest != nil {
+			result = append(result, *closest)
+		}
+	}
+	return result, nil
+}
+
+func absDuration(d time.Duration) time.Duration {
+	if d < 0 {
+		return -d
+	}
+	return d
+}
 
 // GetCPUUsage returns the CPU usage percent over an interval
 func GetCPUUsage() (CPUStats, error) {
@@ -83,38 +164,3 @@ func GetTemperatures() ([]Temperature, error) {
 	}
 	return temps, nil
 }
-
-/*
-// GetGPUStats uses NVML to fetch GPU utilization and temperature
-func GetGPUStats() ([]GPUStats, error) {
-	if !gonvml.IsCgoEnabled() {
-		return nil, fmt.Errorf("NVML is disabled: binary built without CGO")
-	}
-
-	if err := gonvml.Initialize(); err != nil {
-		return nil, err
-	}
-	defer gonvml.Shutdown()
-
-	count, err := gonvml.DeviceCount()
-	if err != nil {
-		return nil, err
-	}
-
-	var gpus []GPUStats
-	for i := uint(0); i < count; i++ {
-		dev, err := gonvml.DeviceHandleByIndex(i)
-		if err != nil {
-			continue
-		}
-		name, _ := dev.Name()
-		util, _, _ := dev.UtilizationRates()
-		temp, _ := dev.Temperature()
-		gpus = append(gpus, GPUStats{
-			Name:        name,
-			Utilization: util,
-			Temperature: temp,
-		})
-	}
-	return gpus, nil
-}*/

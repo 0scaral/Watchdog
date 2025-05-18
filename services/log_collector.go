@@ -5,18 +5,34 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
 	"time"
 )
 
 type Logs struct {
-	TimeCreated      time.Time `json:"timeCreated"` //Time at which the log was generated
-	ID               int       `json:"id"`
-	LevelDisplayName string    `json:"levelDisplayName"` //Type of log (INFO, WARN, ERROR, FATAL)
-	Message          string    `json:"message"`          //Message of the log
+	TimeCreated      string `json:"timeCreated"` // Cambiado a string para compatibilidad con JSON de PowerShell
+	ID               int    `json:"id"`
+	LevelDisplayName string `json:"levelDisplayName"` //Type of log (INFO, WARN, ERROR, FATAL)
+	Message          string `json:"message"`          //Message of the log
 }
 
-func LogsEvents() ([]Logs, map[int]Logs) {
-	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -LogName System -MaxEvents 10 | ConvertTo-Json`)
+func parseWinDate(dateStr string) string {
+	re := regexp.MustCompile(`/Date\((\d+)\)/`)
+	matches := re.FindStringSubmatch(dateStr)
+	if len(matches) == 2 {
+		ms, err := strconv.ParseInt(matches[1], 10, 64)
+		if err == nil {
+			t := time.Unix(0, ms*int64(time.Millisecond))
+			return t.Format(time.RFC3339)
+		}
+	}
+	return dateStr // fallback si no coincide
+}
+
+func LogsEvents() []Logs {
+	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -MaxEvents 10 | Select-Object TimeCreated, Id, LevelDisplayName, Message | ConvertTo-Json`)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -24,7 +40,7 @@ func LogsEvents() ([]Logs, map[int]Logs) {
 
 	if err != nil {
 		fmt.Printf("Error in powershell execution: %v\n", err)
-		return nil, nil
+		return nil
 	}
 
 	var events []Logs
@@ -37,23 +53,27 @@ func LogsEvents() ([]Logs, map[int]Logs) {
 		}
 	}
 
-	logMap := make(map[int]Logs)
-	for _, log := range events {
-		logMap[log.ID] = log
+	// Normaliza el formato de fecha
+	for i := range events {
+		events[i].TimeCreated = parseWinDate(events[i].TimeCreated)
 	}
 
-	return events, logMap
+	return events
 }
 
-func GetLogByID(logMap map[int]Logs, id int) (Logs, bool) {
-	log, found := logMap[id]
-	return log, found
+func GetLogByID(logs []Logs, id int) (Logs, bool) {
+	for _, log := range logs {
+		if log.ID == id {
+			return log, true
+		}
+	}
+	return Logs{}, false
 }
 
-func GetLogsByType(logMap map[int]Logs, logType string) []Logs {
+func GetLogsByType(logs []Logs, logType string) []Logs {
 	var result []Logs
-	for _, log := range logMap {
-		if log.LevelDisplayName == logType {
+	for _, log := range logs {
+		if strings.EqualFold(log.LevelDisplayName, logType) {
 			result = append(result, log)
 		}
 	}
