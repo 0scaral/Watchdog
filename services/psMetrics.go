@@ -1,74 +1,120 @@
 package services
 
 import (
+	//"fmt"
 	"time"
 
+	"github.com/StackExchange/wmi"
+	//"github.com/mindprince/gonvml"
 	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/host"
 	"github.com/shirou/gopsutil/mem"
 )
 
-type Metric struct {
-	TimeStamp   time.Time `json:"timestamp"`
-	CPUUsage    float64   `json:"cpuusage"`
-	RAMUsage    float64   `json:"ramusage"`
-	GPUUsage    float64   `json:"gpuusage"`
-	Temperature float64   `json:"temperature"`
+// MemoryStats holds RAM usage data
+type MemoryStats struct {
+	Total       uint64
+	Available   uint64
+	Used        uint64
+	UsedPercent float64
 }
 
-var metricsHistory []Metric
+// CPUStats holds CPU usage data
+type CPUStats struct {
+	Percent float64
+}
 
-func CollectMetrics() {
-	for {
-		cpuPercent, _ := cpu.Percent(0, false)
-		memStats, _ := mem.VirtualMemory()
-		temperatures, _ := host.SensorsTemperatures()
+// Temperature represents temperature data from WMI
+type Temperature struct {
+	Name        string
+	Temperature uint32
+}
 
-		temp := 0.0
-		if len(temperatures) > 0 {
-			temp = float64(temperatures[0].Temperature)
+/* GPUStats holds GPU usage and temperature
+type GPUStats struct {
+	Name        string
+	Utilization uint
+	Temperature uint
+}*/
+
+// GetCPUUsage returns the CPU usage percent over an interval
+func GetCPUUsage() (CPUStats, error) {
+	percentages, err := cpu.Percent(time.Second, false)
+	if err != nil {
+		return CPUStats{}, err
+	}
+	return CPUStats{Percent: percentages[0]}, nil
+}
+
+// GetMemoryUsage returns memory usage stats
+func GetMemoryUsage() (MemoryStats, error) {
+	vm, err := mem.VirtualMemory()
+	if err != nil {
+		return MemoryStats{}, err
+	}
+	return MemoryStats{
+		Total:       vm.Total,
+		Available:   vm.Available,
+		Used:        vm.Used,
+		UsedPercent: vm.UsedPercent,
+	}, nil
+}
+
+// GetTemperatures fetches CPU temperatures via WMI
+func GetTemperatures() ([]Temperature, error) {
+	var dst []struct {
+		CurrentTemperature uint32
+		InstanceName       string
+	}
+	query := "SELECT CurrentTemperature, InstanceName FROM MSAcpi_ThermalZoneTemperature"
+	err := wmi.Query(query, &dst)
+	if err != nil {
+		return nil, err
+	}
+
+	temps := make([]Temperature, len(dst))
+	for i, v := range dst {
+		// WMI temp is in tenths of Kelvin
+		kelvin := float64(v.CurrentTemperature) / 10
+		celsius := uint32(kelvin - 273.15)
+		temps[i] = Temperature{
+			Name:        v.InstanceName,
+			Temperature: celsius,
 		}
+	}
+	return temps, nil
+}
 
-		m := Metric{
-			TimeStamp:   time.Now(),
-			CPUUsage:    cpuPercent[0],
-			RAMUsage:    memStats.UsedPercent,
-			GPUUsage:    0.0,
+/*
+// GetGPUStats uses NVML to fetch GPU utilization and temperature
+func GetGPUStats() ([]GPUStats, error) {
+	if !gonvml.IsCgoEnabled() {
+		return nil, fmt.Errorf("NVML is disabled: binary built without CGO")
+	}
+
+	if err := gonvml.Initialize(); err != nil {
+		return nil, err
+	}
+	defer gonvml.Shutdown()
+
+	count, err := gonvml.DeviceCount()
+	if err != nil {
+		return nil, err
+	}
+
+	var gpus []GPUStats
+	for i := uint(0); i < count; i++ {
+		dev, err := gonvml.DeviceHandleByIndex(i)
+		if err != nil {
+			continue
+		}
+		name, _ := dev.Name()
+		util, _, _ := dev.UtilizationRates()
+		temp, _ := dev.Temperature()
+		gpus = append(gpus, GPUStats{
+			Name:        name,
+			Utilization: util,
 			Temperature: temp,
-		}
-		metricsHistory = append(metricsHistory, m)
-
-		if len(metricsHistory) > 600 {
-			metricsHistory = metricsHistory[len(metricsHistory)-600:]
-		}
-
-		time.Sleep(10 * time.Second)
+		})
 	}
-}
-
-func GetMetrics() map[string]*Metric {
-	now := time.Now()
-	var m10, m5, m1 *Metric
-
-	for i := len(metricsHistory) - 1; i >= 0; i-- {
-		m := metricsHistory[i]
-		if m10 == nil && now.Sub(m.TimeStamp) > 10*time.Minute {
-			m10 = &m
-		}
-
-		if m5 == nil && now.Sub(m.TimeStamp) > 5*time.Minute {
-			m5 = &m
-		}
-
-		if m1 == nil && now.Sub(m.TimeStamp) > 1*time.Minute {
-			m1 = &m
-		}
-	}
-
-	return map[string]*Metric{
-		"10 Minutes Ago: ": m10,
-		"5 Minutes Ago: ": m5,
-		"1 Minute Ago: ": m1,
-		"Current: ": &metricsHistory[len(metricsHistory)-1]
-	}
-}
+	return gpus, nil
+}*/
