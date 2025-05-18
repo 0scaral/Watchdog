@@ -19,16 +19,16 @@ type Logs struct {
 }
 
 func parseWinDate(dateStr string) string {
-	re := regexp.MustCompile(`/Date\((\d+)\)/`)
-	matches := re.FindStringSubmatch(dateStr)
+	regularExpresion := regexp.MustCompile(`/Date\((\d+)\)/`)
+	matches := regularExpresion.FindStringSubmatch(dateStr)
 	if len(matches) == 2 {
-		ms, err := strconv.ParseInt(matches[1], 10, 64)
+		milliseconds, err := strconv.ParseInt(matches[1], 10, 64)
 		if err == nil {
-			t := time.Unix(0, ms*int64(time.Millisecond))
+			t := time.Unix(0, milliseconds*int64(time.Millisecond))
 			return t.Format(time.RFC3339)
 		}
 	}
-	return dateStr // fallback si no coincide
+	return dateStr
 }
 
 func LogsEvents() []Logs {
@@ -53,7 +53,6 @@ func LogsEvents() []Logs {
 		}
 	}
 
-	// Normaliza el formato de fecha
 	for i := range events {
 		events[i].TimeCreated = parseWinDate(events[i].TimeCreated)
 	}
