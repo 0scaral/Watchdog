@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 
@@ -22,7 +21,6 @@ func SetupLogRoutes(router *gin.Engine) {
 func getLogs(c *gin.Context) {
 	events := services.LogsEvents()
 	if len(events) == 0 {
-		log.Println("No logs found")
 		c.JSON(http.StatusOK, gin.H{"message": "No logs found"})
 		return
 	}
@@ -30,11 +28,9 @@ func getLogs(c *gin.Context) {
 }
 
 func getLogsByType(c *gin.Context) {
-	events := services.LogsEvents()
 	logType := c.Param("type")
-	result := services.GetLogsByType(events, logType)
+	result := services.GetLogsByType(logType)
 	if len(result) == 0 {
-		log.Printf("No logs found for type: %s", logType)
 		c.JSON(http.StatusNotFound, gin.H{"error": "No logs found for type", "type": logType})
 		return
 	}
@@ -42,17 +38,14 @@ func getLogsByType(c *gin.Context) {
 }
 
 func getLogByID(c *gin.Context) {
-	events := services.LogsEvents()
 	idStr := c.Param("id")
 	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		log.Printf("Invalid ID: %s", idStr)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
 		return
 	}
-	logEntry, found := services.GetLogByID(events, id)
+	logEntry, found := services.GetLogByID(id)
 	if !found {
-		log.Printf("Log not found for ID: %d", id)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Log not found", "id": id})
 		return
 	}

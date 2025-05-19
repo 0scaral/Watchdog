@@ -8,11 +8,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Logs struct {
-	TimeCreated      string `json:"timeCreated"` // Cambiado a string para compatibilidad con JSON de PowerShell
+	TimeCreated      string `json:"timeCreated"`
 	ID               int    `json:"id"`
 	LevelDisplayName string `json:"levelDisplayName"` //Type of log (INFO, WARN, ERROR, FATAL)
 	Message          string `json:"message"`          //Message of the log
@@ -31,7 +32,7 @@ func parseWinDate(dateStr string) string {
 	return dateStr
 }
 
-func LogsEvents() []Logs {
+func fetchLogs() []Logs {
 	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -MaxEvents 10 | Select-Object TimeCreated, Id, LevelDisplayName, Message | ConvertTo-Json`)
 
 	var out bytes.Buffer
@@ -60,8 +61,39 @@ func LogsEvents() []Logs {
 	return events
 }
 
-func GetLogByID(logs []Logs, id int) (Logs, bool) {
+var (
+	storedLogs      []Logs
+	storedLogsMutex sync.RWMutex
+)
+
+// addLogsToStored agrega logs a storedLogs si no están ya presentes.
+func addLogsToStored(logs []Logs) {
+	storedLogsMutex.Lock()
+	defer storedLogsMutex.Unlock()
+	existing := make(map[int]struct{})
+	for _, l := range storedLogs {
+		existing[l.ID] = struct{}{}
+	}
 	for _, log := range logs {
+		if _, found := existing[log.ID]; !found {
+			storedLogs = append(storedLogs, log)
+			existing[log.ID] = struct{}{}
+		}
+	}
+}
+
+// LogsEvents obtiene los logs más recientes y los almacena en storedLogs.
+func LogsEvents() []Logs {
+	logs := fetchLogs()
+	addLogsToStored(logs)
+	return logs
+}
+
+// Consultas sobre storedLogs en vez de logs pasados por parámetro.
+func GetLogByID(id int) (Logs, bool) {
+	storedLogsMutex.RLock()
+	defer storedLogsMutex.RUnlock()
+	for _, log := range storedLogs {
 		if log.ID == id {
 			return log, true
 		}
@@ -69,9 +101,11 @@ func GetLogByID(logs []Logs, id int) (Logs, bool) {
 	return Logs{}, false
 }
 
-func GetLogsByType(logs []Logs, logType string) []Logs {
+func GetLogsByType(logType string) []Logs {
+	storedLogsMutex.RLock()
+	defer storedLogsMutex.RUnlock()
 	var result []Logs
-	for _, log := range logs {
+	for _, log := range storedLogs {
 		if strings.EqualFold(log.LevelDisplayName, logType) {
 			result = append(result, log)
 		}
