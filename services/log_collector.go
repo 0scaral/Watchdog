@@ -85,6 +85,13 @@ func addLogsToStored(logs []Logs) {
 // LogsEvents obtiene los logs más recientes y los almacena en storedLogs.
 func LogsEvents() []Logs {
 	logs := fetchLogs()
+	for _, log := range logs {
+		switch strings.ToLower(log.LevelDisplayName) {
+		case "error", "critical", "warning":
+			msg := fmt.Sprintf("Log Alert, a suspicious log has been detected.\nID: %d\nType: %s\nMessage: %s", log.ID, log.LevelDisplayName, log.Message)
+			sendAlerts(msg)
+		}
+	}
 	addLogsToStored(logs)
 	return logs
 }

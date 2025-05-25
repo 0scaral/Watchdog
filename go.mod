@@ -7,8 +7,9 @@ toolchain go1.23.8
 require (
 	github.com/StackExchange/wmi v1.2.1
 	github.com/gin-gonic/gin v1.10.0
-	github.com/mindprince/gonvml v0.0.0-20211002210717-ac0b66419a41
+	github.com/joho/godotenv v1.5.1
 	github.com/shirou/gopsutil v3.21.11+incompatible
+	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
 
 require (
@@ -40,5 +41,6 @@ require (
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
