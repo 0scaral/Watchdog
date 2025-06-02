@@ -1,166 +1,112 @@
 package services
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/StackExchange/wmi"
-	"github.com/shirou/gopsutil/cpu"
-	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/disk"
+	"github.com/shirou/gopsutil/v3/host"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
-// MemoryStats holds RAM usage data
-type MemoryStats struct {
-	Total       uint64
-	Available   uint64
-	Used        uint64
-	UsedPercent float64
+type Metric struct {
+	Timestamp   time.Time
+	CPUUsage    float64 `json:"cpu_usage"`
+	RAMUsage    float64 `json:"ram_usage"`
+	DiskUsage   float64 `json:"disk_usage"`
+	Temperature float64 `json:"temperature"`
 }
 
-// CPUStats holds CPU usage data
-type CPUStats struct {
-	Percent float64
-}
-
-// Temperature represents temperature data from WMI
-type Temperature struct {
-	Name        string
-	Temperature uint32
-}
-
-type MetricsSnapshot struct {
-	Timestamp    time.Time
-	CPU          CPUStats
-	Memory       MemoryStats
-	Temperatures []Temperature
-}
-
-// Almacenamiento en memoria de snapshots
 var (
-	metricsHistory []MetricsSnapshot
-	historyMutex   sync.Mutex
-	maxHistory     = 1000 // puedes ajustar este valor según tus necesidades
+	metrics []Metric
+	mu      sync.Mutex
 )
 
-// Guarda un snapshot actual en el historial
-func StoreCurrentMetricsSnapshot() error {
-	cpuStats, err := GetCPUUsage()
-	if err != nil {
-		return err
-	}
-	memStats, err := GetMemoryUsage()
-	if err != nil {
-		return err
-	}
-	temps, _ := GetTemperatures()
-
-	snapshot := MetricsSnapshot{
-		Timestamp:    time.Now(),
-		CPU:          cpuStats,
-		Memory:       memStats,
-		Temperatures: temps,
-	}
-
-	historyMutex.Lock()
-	defer historyMutex.Unlock()
-	metricsHistory = append(metricsHistory, snapshot)
-	if len(metricsHistory) > maxHistory {
-		metricsHistory = metricsHistory[1:]
-	}
-	return nil
-}
-
-// Llama a esta función periódicamente (por ejemplo, cada minuto) desde un goroutine en main.go
-func StartMetricsCollector(interval time.Duration, stopCh <-chan struct{}) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+func collectMetrics(interval time.Duration) {
 	for {
-		select {
-		case <-ticker.C:
-			StoreCurrentMetricsSnapshot()
-		case <-stopCh:
-			return
-		}
-	}
-}
+		cpuPercent, _ := cpu.Percent(0, false)
+		vmStat, _ := mem.VirtualMemory()
+		diskStat, _ := disk.Usage("C:\\\\") // "/" en Linux, "C:\\" en Windows
 
-// Devuelve los snapshots más cercanos a hace 10, 5 minutos y el actual
-func GetHistoricalMetrics() ([]MetricsSnapshot, error) {
-	historyMutex.Lock()
-	defer historyMutex.Unlock()
-
-	now := time.Now()
-	targets := []time.Duration{10 * time.Minute, 5 * time.Minute, 0}
-	result := make([]MetricsSnapshot, 0, 3)
-
-	for _, target := range targets {
-		var closest *MetricsSnapshot
-		minDiff := time.Duration(1<<63 - 1)
-		for i := range metricsHistory {
-			diff := absDuration(metricsHistory[i].Timestamp.Sub(now.Add(-target)))
-			if diff < minDiff {
-				minDiff = diff
-				closest = &metricsHistory[i]
+		temps, _ := host.SensorsTemperatures()
+		var temp float64
+		if len(temps) > 0 {
+			for _, t := range temps {
+				if t.Temperature > 0 {
+					temp = t.Temperature
+					break
+				}
 			}
 		}
-		if closest != nil {
-			result = append(result, *closest)
+
+		metric := Metric{
+			Timestamp:   time.Now(),
+			CPUUsage:    cpuPercent[0],
+			RAMUsage:    vmStat.UsedPercent,
+			DiskUsage:   diskStat.UsedPercent,
+			Temperature: temp,
+		}
+
+		mu.Lock()
+		metrics = append(metrics, metric)
+		cutoff := time.Now().Add(-11 * time.Minute)
+		for len(metrics) > 0 && metrics[0].Timestamp.Before(cutoff) {
+			metrics = metrics[1:]
+		}
+		mu.Unlock()
+
+		time.Sleep(interval)
+	}
+}
+
+func averageUsage(duration time.Duration) (cpuAvg, ramAvg, diskAvg, tempAvg float64) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	now := time.Now()
+	count := 0
+	for _, m := range metrics {
+		if now.Sub(m.Timestamp) <= duration {
+			cpuAvg += m.CPUUsage
+			ramAvg += m.RAMUsage
+			diskAvg += m.DiskUsage
+			tempAvg += m.Temperature
+			count++
 		}
 	}
-	return result, nil
+
+	if count > 0 {
+		cpuAvg /= float64(count)
+		ramAvg /= float64(count)
+		diskAvg /= float64(count)
+		tempAvg /= float64(count)
+	}
+
+	return
 }
 
-func absDuration(d time.Duration) time.Duration {
-	if d < 0 {
-		return -d
-	}
-	return d
-}
+func printMetrics() {
+	for {
+		cpu5, ram5, disk5, temp5 := averageUsage(5 * time.Minute)
+		cpu10, ram10, disk10, temp10 := averageUsage(10 * time.Minute)
 
-// GetCPUUsage returns the CPU usage percent over an interval
-func GetCPUUsage() (CPUStats, error) {
-	percentages, err := cpu.Percent(time.Second, false)
-	if err != nil {
-		return CPUStats{}, err
-	}
-	return CPUStats{Percent: percentages[0]}, nil
-}
-
-// GetMemoryUsage returns memory usage stats
-func GetMemoryUsage() (MemoryStats, error) {
-	vm, err := mem.VirtualMemory()
-	if err != nil {
-		return MemoryStats{}, err
-	}
-	return MemoryStats{
-		Total:       vm.Total,
-		Available:   vm.Available,
-		Used:        vm.Used,
-		UsedPercent: vm.UsedPercent,
-	}, nil
-}
-
-// GetTemperatures fetches CPU temperatures via WMI
-func GetTemperatures() ([]Temperature, error) {
-	var dst []struct {
-		CurrentTemperature uint32
-		InstanceName       string
-	}
-	query := "SELECT CurrentTemperature, InstanceName FROM MSAcpi_ThermalZoneTemperature"
-	err := wmi.Query(query, &dst)
-	if err != nil {
-		return nil, err
-	}
-
-	temps := make([]Temperature, len(dst))
-	for i, v := range dst {
-		// WMI temp is in tenths of Kelvin
-		kelvin := float64(v.CurrentTemperature) / 10
-		celsius := uint32(kelvin - 273.15)
-		temps[i] = Temperature{
-			Name:        v.InstanceName,
-			Temperature: celsius,
+		mu.Lock()
+		var current Metric
+		if len(metrics) > 0 {
+			current = metrics[len(metrics)-1]
 		}
+		mu.Unlock()
+
+		fmt.Printf("\n=== MÉTRICAS ===\n")
+		fmt.Printf("Actual   → CPU: %.2f%% | RAM: %.2f%% | Disco: %.2f%% | Temp: %.2f°C\n",
+			current.CPUUsage, current.RAMUsage, current.DiskUsage, current.Temperature)
+		fmt.Printf("Hace 5m  → CPU: %.2f%% | RAM: %.2f%% | Disco: %.2f%% | Temp: %.2f°C\n",
+			cpu5, ram5, disk5, temp5)
+		fmt.Printf("Hace 10m → CPU: %.2f%% | RAM: %.2f%% | Disco: %.2f%% | Temp: %.2f°C\n",
+			cpu10, ram10, disk10, temp10)
+
+		time.Sleep(10 * time.Second)
 	}
-	return temps, nil
 }
