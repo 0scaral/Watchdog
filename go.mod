@@ -7,7 +7,6 @@ toolchain go1.23.8
 require (
 	github.com/StackExchange/wmi v1.2.1
 	github.com/gin-gonic/gin v1.10.0
-	github.com/mindprince/gonvml v0.0.0-20211002210717-ac0b66419a41
 	github.com/shirou/gopsutil v3.21.11+incompatible
 )
 
