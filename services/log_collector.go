@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,7 +34,7 @@ func parseWinDate(dateStr string) string {
 }
 
 func fetchLogs() []Logs {
-	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -MaxEvents 10 | Select-Object TimeCreated, Id, LevelDisplayName, Message | ConvertTo-Json`)
+	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -LogName 'Application','System','Security' -MaxEvents 10 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Id, LevelDisplayName, Message | ConvertTo-Json -Depth 5`)
 
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -62,27 +63,26 @@ func fetchLogs() []Logs {
 }
 
 var (
+	historyLogs     []Logs
 	storedLogs      []Logs
 	storedLogsMutex sync.RWMutex
 )
 
-// addLogsToStored agrega logs a storedLogs si no están ya presentes.
-func addLogsToStored(logs []Logs) {
+func addLogsToHistory(logs []Logs) {
 	storedLogsMutex.Lock()
 	defer storedLogsMutex.Unlock()
 	existing := make(map[int]struct{})
-	for _, l := range storedLogs {
+	for _, l := range historyLogs {
 		existing[l.ID] = struct{}{}
 	}
 	for _, log := range logs {
 		if _, found := existing[log.ID]; !found {
-			storedLogs = append(storedLogs, log)
+			historyLogs = append(historyLogs, log)
 			existing[log.ID] = struct{}{}
 		}
 	}
 }
 
-// LogsEvents obtiene los logs más recientes y los almacena en storedLogs.
 func LogsEvents() []Logs {
 	logs := fetchLogs()
 	for _, log := range logs {
@@ -92,15 +92,14 @@ func LogsEvents() []Logs {
 			sendAlerts(msg)
 		}
 	}
-	addLogsToStored(logs)
+	addLogsToHistory(logs)
 	return logs
 }
 
-// Consultas sobre storedLogs en vez de logs pasados por parámetro.
 func GetLogByID(id int) (Logs, bool) {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
-	for _, log := range storedLogs {
+	for _, log := range historyLogs {
 		if log.ID == id {
 			return log, true
 		}
@@ -112,10 +111,92 @@ func GetLogsByType(logType string) []Logs {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
 	var result []Logs
+	for _, log := range historyLogs {
+		if strings.EqualFold(log.LevelDisplayName, logType) {
+			result = append(result, log)
+		}
+	}
+	return result
+}
+
+func PostLogByID(id int) {
+	storedLogsMutex.RLock()
+	defer storedLogsMutex.RUnlock()
+	for _, log := range historyLogs {
+		if log.ID == id {
+			storedLogs = append(storedLogs, log)
+		}
+	}
+}
+
+func PostLogByType(logType string) {
+	storedLogsMutex.RLock()
+	defer storedLogsMutex.RUnlock()
+	for _, log := range historyLogs {
+		if strings.EqualFold(log.LevelDisplayName, logType) {
+			storedLogs = append(storedLogs, log)
+		}
+	}
+}
+
+func DeleteLogByID(id int) {
+	storedLogsMutex.Lock()
+	defer storedLogsMutex.Unlock()
+	for i, log := range storedLogs {
+		if log.ID == id {
+			storedLogs = append(storedLogs[:i], storedLogs[i+1:]...)
+		}
+	}
+}
+
+func DeleteLogByType(logType string) {
+	storedLogsMutex.Lock()
+	defer storedLogsMutex.Unlock()
+	var newLogs []Logs
+	for _, log := range storedLogs {
+		if !strings.EqualFold(log.LevelDisplayName, logType) {
+			newLogs = append(newLogs, log)
+		}
+	}
+	storedLogs = newLogs
+}
+
+func GetStoredLogs() []Logs {
+	storedLogsMutex.RLock()
+	defer storedLogsMutex.RUnlock()
+	return slices.Clone(storedLogs)
+}
+
+func GetStoredLogsByType(logType string) []Logs {
+	storedLogsMutex.RLock()
+	defer storedLogsMutex.RUnlock()
+	var result []Logs
 	for _, log := range storedLogs {
 		if strings.EqualFold(log.LevelDisplayName, logType) {
 			result = append(result, log)
 		}
 	}
 	return result
+}
+
+func GetStoredLogByID(id int) (Logs, bool) {
+	storedLogsMutex.RLock()
+	defer storedLogsMutex.RUnlock()
+	for _, log := range storedLogs {
+		if log.ID == id {
+			return log, true
+		}
+	}
+	return Logs{}, false
+}
+
+var validLogTypes = []string{"Information", "Warning", "Error", "Critical", "Verbose"}
+
+func IsValidLogType(logType string) bool {
+	for _, t := range validLogTypes {
+		if strings.EqualFold(t, logType) {
+			return true
+		}
+	}
+	return false
 }
