@@ -89,7 +89,8 @@ func LogsEvents() []Logs {
 		switch strings.ToLower(log.LevelDisplayName) {
 		case "error", "critical", "warning":
 			msg := fmt.Sprintf("Log Alert, a suspicious log has been detected.\nID: %d\nType: %s\nMessage: %s", log.ID, log.LevelDisplayName, log.Message)
-			sendAlerts(msg)
+			SendAlertMail(msg)
+			SendAlertTelegram(msg)
 		}
 	}
 	addLogsToHistory(logs)
