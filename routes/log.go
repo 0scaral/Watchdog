@@ -15,6 +15,7 @@ func SetupLogRoutes(router *gin.Engine) {
 		logGroup.GET("/type/:type", getLogsByType)
 		logGroup.GET("/id/:id", getLogByID)
 		logGroup.GET("/", getLogs)
+		logGroup.GET("/history", getHistoricalLogs)
 
 		logGroup.GET("/stored", getStoredLogs)
 		logGroup.GET("/stored/id/:id", getStoredLogByID)
@@ -39,6 +40,15 @@ func getLogs(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, events)
+}
+
+func getHistoricalLogs(c *gin.Context) {
+	historyLogs := services.GetHistoricalLogs()
+	if len(historyLogs) == 0 {
+		c.JSON(http.StatusOK, gin.H{"message": "No historical logs found"})
+		return
+	}
+	c.JSON(http.StatusOK, historyLogs)
 }
 
 // TYPE HANDLERS
