@@ -2,12 +2,19 @@ package main
 
 import (
 	"Watchdog/routes"
+	"Watchdog/services"
 	"log"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+
+	go func() {
+		for {
+			services.LogsEvents()
+		}
+	}()
 
 	router := gin.Default()
 	router.Static("/static", "./static")

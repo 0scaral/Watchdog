@@ -8,7 +8,7 @@ import (
 	"gopkg.in/gomail.v2"
 )
 
-func sendAlerts(text string) {
+func SendAlertMail(text string) {
 
 	err := godotenv.Load(".env")
 	if err != nil {
