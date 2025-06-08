@@ -26,6 +26,8 @@ var (
 	historyLogs     []Logs
 	storedLogs      []Logs
 	storedLogsMutex sync.RWMutex
+	alertedLogs     = make(map[string]struct{})
+	alertedLogMutex sync.Mutex
 )
 
 // validLogTypes contains the valid log types for filtering
@@ -100,16 +102,31 @@ func addLogsToHistory(logs []Logs) {
 	}
 }
 
+func logUniqueKey(log Logs) string {
+	return fmt.Sprintf("%d_%s", log.ID, log.TimeCreated)
+}
+
 // HISTORICAL LOGS HANDLERS
 // Function to handle log events and send alerts
 func LogsEvents() []Logs {
 	logs := fetchLogs()
 	for _, log := range logs {
+		shouldAlert := false
 		switch strings.ToLower(log.LevelDisplayName) {
 		case "error", "critical", "warning":
-			msg := fmt.Sprintf("Log Alert, a suspicious log has been detected.\nID: %d\nType: %s\nMessage: %s", log.ID, log.LevelDisplayName, log.Message)
-			SendAlertMail(msg)
-			SendAlertTelegram(msg)
+			key := logUniqueKey(log)
+			alertedLogMutex.Lock()
+			_, alreadyAlerted := alertedLogs[key]
+			if !alreadyAlerted {
+				alertedLogs[key] = struct{}{}
+				shouldAlert = true
+			}
+			alertedLogMutex.Unlock()
+			if shouldAlert {
+				msg := fmt.Sprintf("Log Alert, a suspicious log has been detected.\nID: %d\nType: %s\nMessage: %s", log.ID, log.LevelDisplayName, log.Message)
+				SendAlertMail(msg)
+				SendAlertTelegram(msg)
+			}
 		}
 	}
 	addLogsToHistory(logs)

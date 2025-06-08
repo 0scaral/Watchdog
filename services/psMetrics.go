@@ -1,6 +1,7 @@
 package services
 
 import (
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,6 +33,21 @@ func collectMetrics(interval time.Duration) {
 			CPUUsage:  cpuPercent[0],
 			RAMUsage:  vmStat.UsedPercent,
 			DiskUsage: diskStat.UsedPercent,
+		}
+
+		if metric.CPUUsage > 40 {
+			SendAlertMail("High CPU Usage Alert\nCPU usage is above 40%: " + strconv.FormatFloat(metric.CPUUsage, 'f', 2, 64) + "%")
+			SendAlertTelegram("High CPU Usage Alert\nCPU usage is above 40%: " + strconv.FormatFloat(metric.CPUUsage, 'f', 2, 64) + "%")
+		}
+
+		if metric.RAMUsage > 40 {
+			SendAlertMail("High RAM Usage Alert\nRAM usage is above 40%: " + strconv.FormatFloat(metric.RAMUsage, 'f', 2, 64) + "%")
+			SendAlertTelegram("High RAM Usage Alert\nRAM usage is above 40%: " + strconv.FormatFloat(metric.RAMUsage, 'f', 2, 64) + "%")
+		}
+
+		if metric.DiskUsage > 40 {
+			SendAlertMail("High Disk Usage Alert\nDisk usage is above 40%: " + strconv.FormatFloat(metric.DiskUsage, 'f', 2, 64) + "%")
+			SendAlertTelegram("High Disk Usage Alert\nDisk usage is above 40%: " + strconv.FormatFloat(metric.DiskUsage, 'f', 2, 64) + "%")
 		}
 
 		mu.Lock()
