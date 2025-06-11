@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wacthdog</title>
+</head>
+<body>
+    <div>
+        <h1><a href="index.html">Wacthdog</a></h1>
+        <p>In this page you can see the logs of your system</p>
+    </div>
+    <!-- Contenedor para mostrar los logs -->
+    <div id="logs-container">
+        <h2>Logs</h2>
+        <div id="logs-list">Loading logs...</div>
+    </div>
+    <script>
+    // Obtener y mostrar logs desde la API
+    fetch('/logs/')
+        .then(response => response.json())
+        .then(data => {
+            const logsList = document.getElementById('logs-list');
+            if (Array.isArray(data) && data.length > 0) {
+                logsList.innerHTML = '<ul>' + data.map(log =>
+                    `<li>
+                        <strong>${log.levelDisplayName}</strong> [${log.timeCreated}]<br>
+                        <em>ID:</em> ${log.id}<br>
+                        <span>${log.message}</span>
+                    </li>`
+                ).join('') + '</ul>';
+            } else if (data.message) {
+                logsList.textContent = data.message;
+            } else {
+                logsList.textContent = 'No logs found.';
+            }
+        })
+        .catch(err => {
+            document.getElementById('logs-list').textContent = 'Error loading logs.';
+        });
+    </script>
+</body>
+</html>
