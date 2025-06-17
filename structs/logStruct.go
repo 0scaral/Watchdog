@@ -1,4 +1,4 @@
-package structs
+package Structs
 
 type Logs struct {
 	TimeCreated      string `json:"timeCreated"`

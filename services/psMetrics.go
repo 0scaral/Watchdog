@@ -1,7 +1,7 @@
 package services
 
 import (
-	"Watchdog/structs"
+	structs "Watchdog/Structs"
 	"strconv"
 	"sync"
 	"time"
@@ -100,7 +100,6 @@ func GetAverageMetric(duration time.Duration) structs.Metric {
 	}
 }
 
-// Inicia la recolección de métricas (llamar desde main)
 func StartMetricsCollection() {
 	go collectMetrics(10 * time.Second)
 }
