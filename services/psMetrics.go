@@ -1,6 +1,7 @@
 package services
 
 import (
+	"Watchdog/structs"
 	"strconv"
 	"sync"
 	"time"
@@ -10,15 +11,8 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-type Metric struct {
-	Timestamp time.Time
-	CPUUsage  float64 `json:"cpu_usage"`
-	RAMUsage  float64 `json:"ram_usage"`
-	DiskUsage float64 `json:"disk_usage"`
-}
-
 var (
-	metrics []Metric
+	metrics []structs.Metric
 	mu      sync.Mutex
 )
 
@@ -28,7 +22,7 @@ func collectMetrics(interval time.Duration) {
 		vmStat, _ := mem.VirtualMemory()
 		diskStat, _ := disk.Usage("C:\\\\")
 
-		metric := Metric{
+		metric := structs.Metric{
 			Timestamp: time.Now(),
 			CPUUsage:  cpuPercent[0],
 			RAMUsage:  vmStat.UsedPercent,
@@ -87,19 +81,19 @@ func averageUsage(duration time.Duration) (cpuAvg, ramAvg, diskAvg float64) {
 }
 
 // GetCurrentMetric retorna la última métrica registrada
-func GetCurrentMetric() Metric {
+func GetCurrentMetric() structs.Metric {
 	mu.Lock()
 	defer mu.Unlock()
 	if len(metrics) > 0 {
 		return metrics[len(metrics)-1]
 	}
-	return Metric{}
+	return structs.Metric{}
 }
 
 // GetAverageMetric retorna el promedio de las métricas en el intervalo dado
-func GetAverageMetric(duration time.Duration) Metric {
+func GetAverageMetric(duration time.Duration) structs.Metric {
 	cpu, ram, disk := averageUsage(duration)
-	return Metric{
+	return structs.Metric{
 		CPUUsage:  cpu,
 		RAMUsage:  ram,
 		DiskUsage: disk,
