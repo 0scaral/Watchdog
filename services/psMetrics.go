@@ -1,7 +1,7 @@
 package services
 
 import (
-	structs "Watchdog/Structs"
+	models "Watchdog/models"
 	"strconv"
 	"sync"
 	"time"
@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	metrics []structs.Metric
+	metrics []models.Metric
 	mu      sync.Mutex
 )
 
@@ -22,7 +22,7 @@ func collectMetrics(interval time.Duration) {
 		vmStat, _ := mem.VirtualMemory()
 		diskStat, _ := disk.Usage("C:\\\\")
 
-		metric := structs.Metric{
+		metric := models.Metric{
 			Timestamp: time.Now(),
 			CPUUsage:  cpuPercent[0],
 			RAMUsage:  vmStat.UsedPercent,
@@ -81,19 +81,19 @@ func averageUsage(duration time.Duration) (cpuAvg, ramAvg, diskAvg float64) {
 }
 
 // GetCurrentMetric retorna la última métrica registrada
-func GetCurrentMetric() structs.Metric {
+func GetCurrentMetric() models.Metric {
 	mu.Lock()
 	defer mu.Unlock()
 	if len(metrics) > 0 {
 		return metrics[len(metrics)-1]
 	}
-	return structs.Metric{}
+	return models.Metric{}
 }
 
 // GetAverageMetric retorna el promedio de las métricas en el intervalo dado
-func GetAverageMetric(duration time.Duration) structs.Metric {
+func GetAverageMetric(duration time.Duration) models.Metric {
 	cpu, ram, disk := averageUsage(duration)
-	return structs.Metric{
+	return models.Metric{
 		CPUUsage:  cpu,
 		RAMUsage:  ram,
 		DiskUsage: disk,

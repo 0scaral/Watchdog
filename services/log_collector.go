@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	structs "Watchdog/Structs"
+	models "Watchdog/models"
 )
 
 var (
-	historyLogs     []structs.Logs
-	storedLogs      []structs.Logs
+	historyLogs     []models.Logs
+	storedLogs      []models.Logs
 	storedLogsMutex sync.RWMutex
 	alertedLogs     = make(map[string]struct{})
 	alertedLogMutex sync.Mutex
@@ -50,7 +50,7 @@ func parseWinDate(dateStr string) string {
 }
 
 // Obtain the lastest logs from Windows Event Viewer
-func fetchLogs() []structs.Logs {
+func fetchLogs() []models.Logs {
 	cmd := exec.Command("powershell", "-Command", `Get-WinEvent -LogName 'Application','System','Security' -MaxEvents 10 -ErrorAction SilentlyContinue | Select-Object TimeCreated, Id, LevelDisplayName, Message | ConvertTo-Json -Depth 5`)
 
 	var out bytes.Buffer
@@ -62,9 +62,9 @@ func fetchLogs() []structs.Logs {
 		return nil
 	}
 
-	var events []structs.Logs
+	var events []models.Logs
 	if err := json.Unmarshal(out.Bytes(), &events); err != nil {
-		var event structs.Logs
+		var event models.Logs
 		if err := json.Unmarshal(out.Bytes(), &event); err == nil {
 			events = append(events, event)
 		} else {
@@ -80,7 +80,7 @@ func fetchLogs() []structs.Logs {
 }
 
 // addLogsToHistory adds new logs to the history, avoiding duplicates
-func addLogsToHistory(logs []structs.Logs) {
+func addLogsToHistory(logs []models.Logs) {
 	storedLogsMutex.Lock()
 	defer storedLogsMutex.Unlock()
 	existing := make(map[int]struct{})
@@ -95,13 +95,13 @@ func addLogsToHistory(logs []structs.Logs) {
 	}
 }
 
-func logUniqueKey(log structs.Logs) string {
+func logUniqueKey(log models.Logs) string {
 	return fmt.Sprintf("%d_%s", log.ID, log.TimeCreated)
 }
 
 // HISTORICAL LOGS HANDLERS
 // Function to handle log events and send alerts
-func LogsEvents() []structs.Logs {
+func LogsEvents() []models.Logs {
 	logs := fetchLogs()
 	for _, log := range logs {
 		shouldAlert := false
@@ -127,7 +127,7 @@ func LogsEvents() []structs.Logs {
 }
 
 // GetLogs returns the history of logs
-func GetLogByID(id int) (structs.Logs, bool) {
+func GetLogByID(id int) (models.Logs, bool) {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
 	for _, log := range historyLogs {
@@ -135,14 +135,14 @@ func GetLogByID(id int) (structs.Logs, bool) {
 			return log, true
 		}
 	}
-	return structs.Logs{}, false
+	return models.Logs{}, false
 }
 
 // GetLogsByType returns logs filtered by type
-func GetLogsByType(logType string) []structs.Logs {
+func GetLogsByType(logType string) []models.Logs {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
-	var result []structs.Logs
+	var result []models.Logs
 	for _, log := range historyLogs {
 		if strings.EqualFold(log.LevelDisplayName, logType) {
 			result = append(result, log)
@@ -152,7 +152,7 @@ func GetLogsByType(logType string) []structs.Logs {
 }
 
 // GetHistoricalLogs returns the history of logs
-func GetHistoricalLogs() []structs.Logs {
+func GetHistoricalLogs() []models.Logs {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
 	return slices.Clone(historyLogs)
@@ -161,17 +161,17 @@ func GetHistoricalLogs() []structs.Logs {
 // STORED LOGS HANDLERS
 // GETTER
 // GetStoredLogs returns all stored logs
-func GetStoredLogs() []structs.Logs {
+func GetStoredLogs() []models.Logs {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
 	return slices.Clone(storedLogs)
 }
 
 // GetStoredLogsByType returns stored logs filtered by type
-func GetStoredLogsByType(logType string) []structs.Logs {
+func GetStoredLogsByType(logType string) []models.Logs {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
-	var result []structs.Logs
+	var result []models.Logs
 	for _, log := range storedLogs {
 		if strings.EqualFold(log.LevelDisplayName, logType) {
 			result = append(result, log)
@@ -181,7 +181,7 @@ func GetStoredLogsByType(logType string) []structs.Logs {
 }
 
 // GetStoredLogByID returns a stored log by its ID
-func GetStoredLogByID(id int) (structs.Logs, bool) {
+func GetStoredLogByID(id int) (models.Logs, bool) {
 	storedLogsMutex.RLock()
 	defer storedLogsMutex.RUnlock()
 	for _, log := range storedLogs {
@@ -189,7 +189,7 @@ func GetStoredLogByID(id int) (structs.Logs, bool) {
 			return log, true
 		}
 	}
-	return structs.Logs{}, false
+	return models.Logs{}, false
 }
 
 // POST
@@ -231,7 +231,7 @@ func DeleteLogByID(id int) {
 func DeleteLogByType(logType string) {
 	storedLogsMutex.Lock()
 	defer storedLogsMutex.Unlock()
-	var newLogs []structs.Logs
+	var newLogs []models.Logs
 	for _, log := range storedLogs {
 		if !strings.EqualFold(log.LevelDisplayName, logType) {
 			newLogs = append(newLogs, log)
