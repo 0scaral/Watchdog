@@ -4,11 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wacthdog</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div>
         <h1><a href="index.html">Wacthdog</a></h1>
         <p>In this page you can monitoring the system metrics in Real-time</p>
     </div>
+    <div>
+        <canvas id="cpuChart" width="800" height="325"></canvas>
+        <canvas id="ramChart" width="800" height="325"></canvas>
+        <canvas id="diskChart" width="800" height="325"></canvas>
+    </div>
+    <script src="metrics.js"></script>
 </body>
 </html>

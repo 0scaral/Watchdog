@@ -1,0 +1,114 @@
+body {
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #e3eafc;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    min-height: 100vh;
+}
+div {
+    margin: 0 auto;
+    max-width: 1000px;
+    padding: 50px;
+    margin-top: 20px;
+    margin-bottom: 20px;
+    background: rgba(4, 18, 44, 0.85);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(30, 60, 114, 0.2);
+}
+h1 a {
+    color: #e3eafc;
+    text-decoration: none;
+    letter-spacing: 2px;
+}
+h1 a:hover {
+    color: #a2b6df;
+}
+p {
+    color: #b0c4de;
+}
+canvas {
+    display: block;
+    margin: 32px auto 0 auto;
+    background: rgba(255, 255, 255, 0.049);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(29, 183, 249, 0.349);
+    padding: 5px;
+    width: 100%;
+    max-width: 1300px;
+    height: 350px;
+}
+
+.chartjs-title, .chart-title, .canvas-title {
+    font-size: 2rem !important;
+    font-weight: bold;
+    color: #e3eafc;
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+#logs-container {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+#logs-list {
+    padding-left: 0;
+    list-style: none;
+}
+
+#logs-list li {
+    margin-bottom: 18px;
+    background: rgba(34, 52, 90, 0.5);
+    padding: 12px 16px;
+    border-radius: 8px;
+    color: #e3eafc;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+button {
+    background: linear-gradient(90deg, #4fc3f7 0%, #1976d2 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 22px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin: 6px 0;
+    box-shadow: 0 2px 8px rgba(79, 195, 247, 0.15);
+    transition: background 0.2s, transform 0.2s;
+}
+
+button:hover {
+    background: linear-gradient(90deg, #1976d2 0%, #4fc3f7 100%);
+    transform: translateY(-2px) scale(1.04);
+    color: #e3eafc;
+}
+input[type="text"], input[type="search"], input:not([type]) {
+    background: rgba(79, 195, 247, 0.15);
+    color: #e3eafc;
+    border: 1px solid #4fc3f7;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 1rem;
+    margin: 6px 0;
+    outline: none;
+    transition: background 0.2s, border 0.2s;
+}
+
+input[type="text"]:focus, input[type="search"]:focus, input:not([type]):focus {
+    background: rgba(79, 195, 247, 0.25);
+    border: 1.5px solid #1976d2;
+}
+@media (max-width: 800px) {
+    div {
+        max-width: 98vw;
+        padding: 8px;
+    }
+    canvas {
+        width: 98vw !important;
+        max-width: 100%;
+    }
+}

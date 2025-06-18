@@ -4,17 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wacthdog</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div>
         <h1><a href="index.html">Wacthdog</a></h1>
         <p>In this page you can see the logs of your system</p>
+        <h2>Search Logs by ID</h2>
+        <button id="search-log-btn">search</button>
+        <input type="text" id="log-search" placeholder="Search logs by id">
+        <h2>Search Logs by Type</h2>
+        <button id="search-log-btn-type">search</button>
+        <input type="text" id="log-search-type" placeholder="Search logs by type">
+    </div>
+    <div>
+        <h2>Save logs by ID</h2>
+        <button id="save-log-btn">Save</button>
+        <input type="text" id="log-input" placeholder="Enter log id">
+        <h2>Save Logs by Types</h2>
+        <ul id="log-types-list">
+            <li>Information</li>
+            <li>Warning</li>
+            <li>Error</li>
+            <li>Critical</li>
+            <li>Verbose</li>
+        </ul>
+        <button id="save-log-btn-type">Save</button>
+        <input type="text" id="log-input-type" placeholder="Enter log type">
     </div>
     <div id="logs-container">
         <h2>Logs</h2>
         <ul id="logs-list">
         </ul>
     </div>
-    <script src="main.js"></script>
+    <script src="fecthLogs.js"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wacthdog</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div>
@@ -12,12 +13,11 @@
     </div>
     <div>
         <h2>Features</h2>
-        <ul>
-            <li><a href="system_metric.html">Real-time system monitoring</a></li>
-            <li><a href="logs.html">Logs monitoring</a></li>
-            <li>Customizable alerts and notifications</li>
-            <li>Detailed performance analytics</li>
-        </ul>
+        <div style="display: flex; flex-direction: column; gap: 18px; max-width: 400px; margin: 0 auto;">
+            <a href="system_metric.html"><button>Real-time system monitoring</button></a>
+            <a href="logs.html"><button>Logs monitoring</button></a>
+            <a href="storedLogs.html"><button>Logs stored</button></a>
+        </div>
     </div>
 </body>
 </html>
